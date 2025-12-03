@@ -44,7 +44,7 @@ spec:
     - /sbin/init
     - systemd.setenv=INTFTYPE=eth
     - systemd.setenv=ETBA=1
-    - systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT
+    - systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1
     - systemd.setenv=CEOS=1
     - systemd.setenv=EOS_PLATFORM=ceoslab
     - systemd.setenv=container=docker
@@ -56,6 +56,18 @@ spec:
       limits:
         memory: {{ default $ceosDefaultMemory .memory }}
         cpu: {{ default $ceosDefaultCpu .cpu }}
+    volumeMounts:
+    - name: ceos-startup-config
+      mountPath: /mnt/flash/startup-config
+      subPath: startup-config
+      readOnly: true
+  volumes:
+  - name: ceos-startup-config
+    configMap:
+      name: ceos-startup-config
+      items:
+      - key: startup-config
+        path: startup-config
 ---
 apiVersion: v1
 kind: Service
@@ -71,14 +83,58 @@ spec:
     {{- include "netclab.labels" $root | nindent 4 }}
     {{ $root.Chart.Name }}/pod-name: {{ .name }}
   ports:
-  - name: api
+  - name: restconf
     protocol: TCP
     port: 6020
     targetPort: 6020
+  - name: jsonrpc
+    protocol: TCP
+    port: 6021
+    targetPort: 6021
   - name: ssh
     protocol: TCP
     port: 22
     targetPort: 22
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    vendor: arista
+    {{- include "netclab.labels" $root | nindent 4 }}
+    {{ $root.Chart.Name }}/pod-name: {{ .name }}
+  name: {{ .name }}-generate-cert
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      terminationGracePeriodSeconds: 0
+      restartPolicy: OnFailure
+      volumes:
+      - name: cmds-vol
+        configMap:
+          name: ceos-cmds
+      containers:
+      - name: curl
+        image: curlimages/curl:latest
+        volumeMounts:
+        - name: cmds-vol
+          mountPath: /tmp
+          readOnly: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+            echo "Attempting certificate generation..."
+
+            if ! curl -s -u arista:arista http://{{ .name }}:6021/command-api \
+                 -H "Content-Type: application/json" \
+                 -d @/tmp/cmds ; then
+              echo "Curl failed, exiting with error"
+              exit 1
+            fi
+
+            echo "Certificate generated successfully."
 
 {{- end }}
 {{- end }}

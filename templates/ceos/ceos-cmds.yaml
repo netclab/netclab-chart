@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceos-cmds
+data:
+  cmds: |
+    {
+        "jsonrpc": "2.0",
+        "method": "runCmds",
+        "params": {
+            "version": 1,
+            "cmds": ["enable", "security pki certificate generate self-signed restconf.crt key restconf.key generate rsa 2048 parameters common-name restconf"],
+            "format": "json"
+        },
+        "id": 1
+    }
