@@ -11,7 +11,12 @@
 {{- $nodeName := .name }}
 {{- range .interfaces }}
 {{- if eq .network $networkName }}
-{{- $hostDeviceName := printf "%s-%s-%s" $root.Release.Name $networkName $nodeName }}
+
+{{- $hostDeviceName := include "netclab.vethName" (dict
+      "release" $root.Release.Name
+      "network" $networkName
+      "node"    $nodeName
+  ) }}
 ---
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition

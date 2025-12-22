@@ -64,11 +64,9 @@ Pods will be created according to the topology definition.
 
 > **Note:**<br>
 > Node and network names must use lowercase letters, digits, or hyphens.<br>
-> Host interface names must be **< 15 characters**,<br>
-> and netclab uses combined names internally as `<release>-<network>-<node>`.<br>
-> If the name is too long, Linux rejects it with: `Error: Attribute failed policy validation.`<br>
-> Example (invalid, 17 chars): `dcnet01-b1-ceos01`.<br>
-> Use a short name for the Helm release (e.g., `dc1`).<br>
+> Host interface names are limited to **15 characters**.<br>
+> Netclab computes veth names as `<release>-<network>-<hash(node)>`, automatically shortening long node names for Linux compatibility.<br>
+> **Recommendation:** keep Helm release and network names short (≤ 3 characters).
 
 
 Configuration options are documented in the table below.

@@ -5,6 +5,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{- end }}
 
+
 {{- define "netclab.podAffinity" -}}
 podAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:
@@ -21,6 +22,7 @@ podAffinity:
     topologyKey: kubernetes.io/hostname
 {{- end }}
 
+
 {{- define "netclab.networkTypeMap" -}}
   {{- $networkDefaultType := "veth" -}}
   {{- $networkTypeMap := dict -}}
@@ -29,6 +31,28 @@ podAffinity:
   {{- end -}}
   {{ toYaml $networkTypeMap }}
 {{- end -}}
+
+
+{{/*
+Generate a Linux-safe veth name (<=15 chars):
+<release>-<network>-<hash(node)>
+*/}}
+{{- define "netclab.vethName" -}}
+{{- $release := .release -}}
+{{- $network := .network -}}
+{{- $node := .node -}}
+
+{{- $baseLen := add (len $release) (len $network) 2 -}}
+{{- $hashLen := sub 15 $baseLen -}}
+
+{{- if le $hashLen 0 -}}
+{{- fail "release/network names too long to generate veth name" -}}
+{{- end -}}
+
+{{- $hash := trunc (int $hashLen) (sha1sum $node) -}}
+{{- printf "%s-%s-%s" $release $network $hash -}}
+{{- end }}
+
 
 {{- /*
 Return the joined networks string for a given node and the networkTypeMap,
@@ -43,15 +67,23 @@ Expected inputs:
   {{- $networkTypeMap := .networkTypeMap -}}
   {{- $root := .root -}}
   {{- $nets := list -}}
+
   {{- range $iface := $node.interfaces -}}
     {{- if eq (index $networkTypeMap $iface.network) "veth" }}
-      {{- $nets = append $nets (printf "%s-%s-%s@%s" $root.Release.Name $iface.network $node.name $iface.name) }}
+      {{- $veth := include "netclab.vethName" (dict
+          "release" $root.Release.Name
+          "network" $iface.network
+          "node"    $node.name
+        ) -}}
+      {{- $nets = append $nets (printf "%s@%s" $veth $iface.name) -}}
     {{- else }}
       {{- $nets = append $nets (printf "%s-%s@%s" $root.Release.Name $iface.network $iface.name) }}
     {{- end }}
   {{- end }}
+
   {{- join "," $nets }}
 {{- end }}
+
 
 {{- define "netclab.hasVeth" -}}
   {{- $networkTypeMap := include "netclab.networkTypeMap" . | fromYaml -}}

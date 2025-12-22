@@ -53,8 +53,17 @@ spec:
         {{- end }}
 
         {{- if eq (len $nodesWithVethpair) 2 }}
-          {{- $vethA := printf "%s-%s-%s" $root.Release.Name $network.name (index $nodesWithVethpair 0) }}
-          {{- $vethB := printf "%s-%s-%s" $root.Release.Name $network.name (index $nodesWithVethpair 1) }}
+
+          {{- $vethA := include "netclab.vethName" (dict
+            "release" $root.Release.Name
+            "network" $network.name
+            "node"    (index $nodesWithVethpair 0)
+          ) }}
+          {{- $vethB := include "netclab.vethName" (dict
+            "release" $root.Release.Name
+            "network" $network.name
+            "node"    (index $nodesWithVethpair 1)
+          ) }}
 
           if ip link show {{ $vethA }} >/dev/null 2>&1; then
             ip link del {{ $vethA }}
