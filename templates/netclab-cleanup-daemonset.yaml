@@ -13,7 +13,7 @@ metadata:
     {{- include "netclab.labels" $root | nindent 4 }}
   annotations:
     helm.sh/hook: post-delete
-    helm.sh/hook-weight: "-5"
+    helm.sh/hook-weight: "100"
 spec:
   selector:
     matchLabels:
@@ -37,6 +37,10 @@ spec:
         - |
           set -eux
 
+          echo "Waiting for pods termination..."
+          sleep 10
+
+
         {{- range $network := $root.Values.topology.networks }}
         {{- if eq (index $networkTypeMap $network.name) "veth" }}
         {{- $nodesWithVethpair := list }}
@@ -52,21 +56,27 @@ spec:
         {{- end }}
 
         {{- if eq (len $nodesWithVethpair) 2 }}
-          {{- $vethA := printf "%s-%s-%s" $root.Release.Name $network.name (index $nodesWithVethpair 0) }}
-          {{- $vethB := printf "%s-%s-%s" $root.Release.Name $network.name (index $nodesWithVethpair 1) }}
-          if ip link show {{ $vethA }} >/dev/null 2>&1; then
-            ip link del {{ $vethA }}
-          fi
-          if ip link show {{ $vethB }} >/dev/null 2>&1; then
-            ip link del {{ $vethB }}
-          fi
+
+          {{- $vethA := include "netclab.vethName" (dict
+                "release" $root.Release.Name
+                "network" $network.name
+                "node"    (index $nodesWithVethpair 0)
+            ) }}
+
+          {{- $vethB := include "netclab.vethName" (dict
+                "release" $root.Release.Name
+                "network" $network.name
+                "node"    (index $nodesWithVethpair 1)
+            ) }}
+
+          ip link del {{ $vethA }} || true
+          ip link del {{ $vethB }} || true
+
         {{- end }}
 
         {{- else }}
           {{- $bridge :=  printf "%s-%s" $root.Release.Name $network.name }}
-          if ip link show {{ $bridge }} >/dev/null 2>&1; then
-            ip link del {{ $bridge }}
-          fi
+          ip link del {{ $bridge }} || true
         {{- end }}
 
         {{- end }}
