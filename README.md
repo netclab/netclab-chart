@@ -40,7 +40,7 @@ kind create cluster --name netclab
 - CNI plugins (bridge and host-device):
 ```bash
 docker exec netclab-control-plane bash -c \
-'curl -L https://github.com/containernetworking/plugins/releases/download/v1.8.0/cni-plugins-linux-amd64-v1.8.0.tgz \
+'curl -L https://github.com/containernetworking/plugins/releases/download/v1.9.0/cni-plugins-linux-amd64-v1.9.0.tgz \
 | tar -xz -C /opt/cni/bin ./bridge ./host-device'
 ```
 
