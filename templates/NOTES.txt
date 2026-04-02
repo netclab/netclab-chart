@@ -15,6 +15,6 @@ Then reinstall this chart:
 ✅ Multus CNI detected.
 ✅ netclab-chart installed successfully!
 
-See more: https://github.com/mbakalarski/netclab-chart
+See more: https://github.com/netclab/netclab-chart
 
 {{- end }}

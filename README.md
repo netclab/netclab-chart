@@ -1,8 +1,8 @@
-[![GitHub Repo stars](https://img.shields.io/github/stars/mbakalarski/netclab-chart?style=for-the-badge&color=CFB002)](https://github.com/mbakalarski/netclab-chart)
-[![GitHub Downloads](https://img.shields.io/github/downloads/mbakalarski/netclab-chart/total?style=for-the-badge&label=HELM%20CHART%20DOWNLOADS&color=f200ff)](https://github.com/mbakalarski/netclab-chart/releases)
-[![GitHub Release](https://img.shields.io/github/v/release/mbakalarski/netclab-chart?style=for-the-badge&color=007EC6)](https://github.com/mbakalarski/netclab-chart/releases/latest)
-[![GitHub Issues](https://img.shields.io/github/issues/mbakalarski/netclab-chart?style=for-the-badge&color=FF6F00)](https://github.com/mbakalarski/netclab-chart/issues)
-[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/mbakalarski/netclab-chart?style=for-the-badge&color=44CC11)](https://github.com/mbakalarski/netclab-chart/pulls)
+[![GitHub Repo stars](https://img.shields.io/github/stars/netclab/netclab-chart?style=for-the-badge&color=CFB002)](https://github.com/netclab/netclab-chart)
+[![GitHub Downloads](https://img.shields.io/github/downloads/netclab/netclab-chart/total?style=for-the-badge&label=HELM%20CHART%20DOWNLOADS&color=f200ff)](https://github.com/netclab/netclab-chart/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/netclab/netclab-chart?style=for-the-badge&color=007EC6)](https://github.com/netclab/netclab-chart/releases/latest)
+[![GitHub Issues](https://img.shields.io/github/issues/netclab/netclab-chart?style=for-the-badge&color=FF6F00)](https://github.com/netclab/netclab-chart/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/netclab/netclab-chart?style=for-the-badge&color=44CC11)](https://github.com/netclab/netclab-chart/pulls)
 
 <br>
 
@@ -52,7 +52,7 @@ kubectl -n kube-system wait --for=jsonpath='{.status.numberReady}'=1 --timeout=5
 
 - Add helm repo for netclab chart:
 ```bash
-helm repo add netclab https://mbakalarski.github.io/netclab-chart
+helm repo add netclab https://netclab.github.io/netclab-chart
 helm repo update
 ```
 
@@ -100,7 +100,7 @@ You can override these values in your own file.
 To make the topology and config files easy to reach:
 
 ```bash
-git clone https://github.com/mbakalarski/netclab-chart.git && cd netclab-chart
+git clone https://github.com/netclab/netclab-chart.git && cd netclab-chart
 ```
 
 ```console
@@ -353,4 +353,4 @@ git clone https://github.com/mbakalarski/netclab-chart.git && cd netclab-chart
 
 Found an issue or have an idea?
 Open an issue or submit a PR at: <br>
-👉 [https://github.com/mbakalarski/netclab-chart](https://github.com/mbakalarski/netclab-chart)
+👉 [https://github.com/netclab/netclab-chart](https://github.com/netclab/netclab-chart)
