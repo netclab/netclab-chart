@@ -2,11 +2,11 @@ apiVersion: v1
 entries:
   netclab:
   - apiVersion: v2
-    appVersion: 0.5.7
-    created: "2025-12-22T11:22:57.125832678Z"
+    appVersion: 0.5.8
+    created: "2026-04-02T12:09:15.683381471Z"
     description: Helm chart to deploy a network lab on Kubernetes
-    digest: 8c6ec6c5686d45b833739a6279ba1c568861e865e531f5c73cfc3ecb4bcf26f2
-    home: https://github.com/mbakalarski
+    digest: f4fd4bc1c677a501801b4eac2b4c5fc78a432b57442edbfbd89b3d6c1d05d063
+    home: https://github.com/netclab
     keywords:
     - kind
     - kubernetes
@@ -22,7 +22,7 @@ entries:
     - frrouting
     maintainers:
     - name: M.Bakalarski
-      url: https://github.com/mbakalarski
+      url: https://github.com/netclab
     name: netclab
     sources:
     - https://kind.sigs.k8s.io
@@ -30,11 +30,11 @@ entries:
     - https://github.com/open-traffic-generator/ixia-c
     - https://github.com/nokia/srlinux-container-image
     - https://github.com/FRRouting/frr
-    - https://github.com/mbakalarski/netclab-chart
+    - https://github.com/netclab/netclab-chart
     - https://github.com/mbakalarski/netclab
     - https://github.com/mbakalarski/netclab-examples
     type: application
     urls:
-    - https://github.com/mbakalarski/netclab-chart/releases/download/v0.5.7/netclab-0.5.7.tgz
-    version: 0.5.7
-generated: "2025-12-22T11:22:57.125140197Z"
+    - https://github.com/netclab/netclab-chart/releases/download/v0.5.8/netclab-0.5.8.tgz
+    version: 0.5.8
+generated: "2026-04-02T12:09:15.682712523Z"
