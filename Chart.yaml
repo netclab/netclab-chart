@@ -7,7 +7,7 @@ appVersion: "0.5.7"
 
 maintainers:
 - name: M.Bakalarski
-  url: https://github.com/mbakalarski
+  url: https://github.com/netclab
 
 sources:
 - https://kind.sigs.k8s.io
@@ -15,7 +15,7 @@ sources:
 - https://github.com/open-traffic-generator/ixia-c
 - https://github.com/nokia/srlinux-container-image
 - https://github.com/FRRouting/frr
-- https://github.com/mbakalarski/netclab-chart
+- https://github.com/netclab/netclab-chart
 - https://github.com/mbakalarski/netclab
 - https://github.com/mbakalarski/netclab-examples
 
@@ -33,4 +33,4 @@ keywords:
 - testbed
 - frrouting
 
-home: https://github.com/mbakalarski
+home: https://github.com/netclab
