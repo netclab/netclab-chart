@@ -1,0 +1,49 @@
+[project]
+name = "netclab"
+version = "0.6.0"
+description = "Bring up a network lab on kind: the cluster, Multus, a registry, and the netclab chart"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "mbakalarski", email = "64490638+mbakalarski@users.noreply.github.com" }
+]
+keywords = ["kind", "kubernetes", "multus", "network", "lab", "ceos", "srlinux", "frrouting"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.27.2",
+]
+
+[project.urls]
+Repository = "https://github.com/netclab/netclab-chart"
+Issues = "https://github.com/netclab/netclab-chart/issues"
+Releases = "https://github.com/netclab/netclab-chart/releases"
+
+[project.scripts]
+netclab = "netclab.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pyyaml>=6.0.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

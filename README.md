@@ -30,6 +30,36 @@ Before installing Netclab Chart, ensure the following are present:
 - [helm](https://helm.sh/docs/intro/install/)
 
 
+## ⚡ Quick start: `netclab`
+
+`netclab`, on PyPI, brings a lab up in one command: the kind cluster, the CNI plugins,
+Multus, a local registry, and this chart, from a topology file such as
+[`examples/topology-frrouting.yaml`](examples/topology-frrouting.yaml):
+
+```bash
+uvx netclab up --namespace dc2 --values topology-frrouting.yaml
+uvx netclab down --namespace dc2    # this lab
+uvx netclab down                    # the whole cluster; the registry and its images stay
+```
+
+cEOS cannot be pulled, so it goes into the registry once. The cluster finds `ceos:<version>`
+there before Docker Hub, and the topology names it in `ceos.image`:
+
+```bash
+docker import ./cEOS64-lab-<version>.tar.xz ceos:<version>
+docker tag ceos:<version> localhost:5001/library/ceos:<version>
+docker push localhost:5001/library/ceos:<version>
+```
+
+```yaml
+ceos:
+  image: ceos:<version>
+```
+
+The steps below do the same by hand. `netclab` works only on a cluster it made, so it
+refuses one made by these steps; `netclab down` removes it.
+
+
 ## 🚀 Installation
 
 - Kind cluster:
@@ -37,16 +67,20 @@ Before installing Netclab Chart, ensure the following are present:
 kind create cluster --name netclab
 ```
 
-- CNI plugins (bridge and host-device):
+- CNI plugins (bridge and host-device), from their
+  [latest release](https://github.com/containernetworking/plugins/releases/latest):
 ```bash
+CNI=$(basename "$(curl -s -o /dev/null -w '%{redirect_url}' https://github.com/containernetworking/plugins/releases/latest)")
 docker exec netclab-control-plane bash -c \
-'curl -L https://github.com/containernetworking/plugins/releases/download/v1.9.0/cni-plugins-linux-amd64-v1.9.0.tgz \
-| tar -xz -C /opt/cni/bin ./bridge ./host-device'
+"curl -L https://github.com/containernetworking/plugins/releases/download/${CNI}/cni-plugins-linux-amd64-${CNI}.tgz \
+| tar -xz -C /opt/cni/bin ./bridge ./host-device"
 ```
 
-- Multus CNI plugin:
+- Multus CNI plugin, thin, from its
+  [latest release](https://github.com/k8snetworkplumbingwg/multus-cni/releases/latest):
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/master/deployments/multus-daemonset.yml
+MULTUS=$(basename "$(curl -s -o /dev/null -w '%{redirect_url}' https://github.com/k8snetworkplumbingwg/multus-cni/releases/latest)")
+kubectl apply -f https://raw.githubusercontent.com/k8snetworkplumbingwg/multus-cni/${MULTUS}/deployments/multus-daemonset.yml
 kubectl -n kube-system wait --for=jsonpath='{.status.numberReady}'=1 --timeout=5m daemonset.apps/kube-multus-ds
 ```
 
@@ -76,23 +110,24 @@ You can override these values in your own file.
 | ------------------------ | -------------------------------------------------------------| -----------------------------------|
 | `topology.networks.type` | Type of connection between nodes. Can be `bridge` or `veth`. | `veth`                             |
 | `topology.nodes.type`    | Type of node. Can be: `srlinux`, `frrouting`, `ceos`, `linux`|                                    |
-| `topology.nodes.image`   | Container images used for topology nodes.                    | `ghcr.io/nokia/srlinux:latest`<br>`quay.io/frrouting/frr:8.4.7`<br>`docker.io/library/ceos:4.35.0F`<br>`bash:latest` |
+| `topology.nodes.image`   | Container images used for topology nodes.                    | `ghcr.io/nokia/srlinux:26.7.2`<br>`quay.io/frrouting/frr:10.7.1`<br>ceos: none, see `ceos.image`<br>`bash:5.3.20` |
 | `topology.nodes.memory`  | Memory allocation per node type.                             | srlinux: `4Gi`<br>frr: `512Mi`<br>ceos: `4Gi`<br>linux: `200Mi` |
 | `topology.nodes.cpu`     | CPU allocation per node type.                                | srlinux: `2000m`<br>frr: `500m`<br>ceos: `2000m`<br>linux: `200m` |
+| `ceos.image`             | Image of every cEOS node that names none. Required when a cEOS node names none. | none |
 | `ceos.restconfSslProfile`| SSL profile for cEOS RESTCONF on port 6020.                  | `ARISTA_DEFAULT_SELF_SIGNED_PROFILE` |
 
 <br>
 
 > **Note:**<br>
-> To start cEOS routers, download the cEOS image from Arista Networks and import it into your cluster:
+> cEOS cannot be pulled, so the chart has no default image for it. Download the cEOS image
+> from Arista Networks, import it into your cluster, and name it in `ceos.image`:
 > ```bash
-> docker import ./cEOS64-lab-4.35.0F.tar.tar ceos:4.35.0F
-> kind load docker-image ceos:4.35.0F -n netclab
+> docker import ./cEOS64-lab-<version>.tar.xz ceos:<version>
+> kind load docker-image ceos:<version> -n netclab
 > ```
 > After loading, you can verify the image with:
 > ```bash
 > docker exec netclab-control-plane crictl images | grep ceos
-> docker.io/library/ceos                          4.35.0F              94352c08ca85f       882MB
 > ```
 
 
@@ -236,7 +271,7 @@ git clone https://github.com/netclab/netclab-chart.git && cd netclab-chart
   kubectl exec frr01 -- ip address replace 172.20.0.1/24 dev e1-2
   kubectl exec frr01 -- touch /etc/frr/vtysh.conf
   kubectl exec frr01 -- sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
-  kubectl exec frr01 -- /usr/lib/frr/frrinit.sh start
+  kubectl exec frr01 -- sh -c '/usr/lib/frr/frrinit.sh start > /var/log/frrinit.log 2>&1; tail -1 /var/log/frrinit.log'
   kubectl cp ./examples/frr01.cfg frr01:/frr01.cfg
   kubectl exec frr01 -- vtysh -f /frr01.cfg
   
@@ -245,17 +280,13 @@ git clone https://github.com/netclab/netclab-chart.git && cd netclab-chart
   kubectl exec frr02 -- ip address replace 172.30.0.1/24 dev e1-2
   kubectl exec frr02 -- touch /etc/frr/vtysh.conf
   kubectl exec frr02 -- sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
-  kubectl exec frr02 -- /usr/lib/frr/frrinit.sh start
+  kubectl exec frr02 -- sh -c '/usr/lib/frr/frrinit.sh start > /var/log/frrinit.log 2>&1; tail -1 /var/log/frrinit.log'
   kubectl cp ./examples/frr02.cfg frr02:/frr02.cfg
   kubectl exec frr02 -- vtysh -f /frr02.cfg
   ```
 
-  ```bash
-  Starting watchfrr with command: '  /usr/lib/frr/watchfrr  -d  -F traditional   zebra bgpd staticd'
-  Started watchfrr
-  Starting watchfrr with command: '  /usr/lib/frr/watchfrr  -d  -F traditional   zebra bgpd staticd'
-  Started watchfrr
-  ```
+  FRR's daemons keep the output of the command that starts them open, so `kubectl exec`
+  would not return: the start writes to a file instead.
 
 - Test (convergence may take time):
   ```bash
@@ -269,7 +300,7 @@ git clone https://github.com/netclab/netclab-chart.git && cd netclab-chart
 
 - Start nodes:
   ```bash
-  helm install dc3 netclab/netclab --values examples/topology-ceos.yaml  --namespace dc3 --create-namespace
+  helm install dc3 netclab/netclab --values examples/topology-ceos.yaml --set ceos.image=ceos:<version> --namespace dc3 --create-namespace
   kubectl config set-context --current --namespace dc3
   ```
 

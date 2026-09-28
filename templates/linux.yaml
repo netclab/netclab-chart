@@ -1,6 +1,6 @@
 {{- $root := . }}
 
-{{- $linuxDefaultImg := "bash:latest" }}
+{{- $linuxDefaultImg := "bash:5.3.20" }}
 {{- $linuxDefaultMemory := "200Mi" }}
 {{- $linuxDefaultCpu := "200m" }}
 

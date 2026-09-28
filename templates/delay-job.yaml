@@ -14,5 +14,5 @@ spec:
       restartPolicy: Never
       containers:
       - name: sleep
-        image: alpine:3.20
+        image: alpine:3.24.2
         command: ["sh", "-c", "echo 'Delaying deployment...' && sleep 5"]

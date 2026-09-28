@@ -1,6 +1,5 @@
 {{- $root := . }}
 
-{{- $ceosDefaultImg := "docker.io/library/ceos:4.35.0F" }}
 {{- $ceosDefaultMemory := "4Gi" }}
 {{- $ceosDefaultCpu := "2000m" }}
 
@@ -26,7 +25,7 @@ spec:
   {{- include "netclab.podAffinity" $root | nindent 4 }}
   containers:
   - name: {{ .name }}
-    image: {{ default $ceosDefaultImg .image }}
+    image: {{ .image | default ($root.Values.ceos).image | required (printf "node %s: cEOS cannot be pulled -- import it, and name it in ceos.image or the node's image" .name) }}
     env:
     - name: INTFTYPE
       value: eth

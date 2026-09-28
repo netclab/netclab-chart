@@ -1,0 +1,153 @@
+name: Release
+
+# A tag v* publishes the chart, then netclab to PyPI. The chart comes first: netclab
+# installs the chart of its own version, so it must not reach PyPI before that chart
+# is in the index.
+#
+# The index is served by GitHub Pages, deployed from this workflow: the repository's
+# Pages source is "GitHub Actions". It holds index.yaml and index.html only; the chart
+# itself is an asset of the GitHub Release.
+#
+# The version is Chart.yaml's; tests/test_version.py holds pyproject.toml equal to it,
+# and the tag is checked against it.
+#
+# PyPI trusts this workflow through Trusted Publishing, so no token is stored. The
+# publisher is registered on pypi.org as: project netclab, owner netclab, repository
+# netclab-chart, workflow release.yml, environment pypi.
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  chart:
+    name: the chart, its GitHub Release and the index
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write  # the GitHub Release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: azure/setup-helm@v5.0.1
+
+      - name: The tag is Chart.yaml's version
+        run: |
+          set -euo pipefail
+          version="v$(yq '.version' Chart.yaml)"
+          if [[ "${GITHUB_REF_NAME}" != "${version}" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} is not Chart.yaml's version ${version}"
+            exit 1
+          fi
+
+      - run: helm package . --destination dist
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/*.tgz --verify-tag --generate-notes
+
+      - name: The index, merged with the one published
+        run: |
+          set -euo pipefail
+          repo_url="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}"
+          index_url="https://netclab.github.io/netclab-chart/index.yaml"
+
+          # --merge takes a file path, not a URL. Handed a URL, helm merges
+          # nothing and still exits 0 -- which is how every release up to
+          # 0.5.11 published an index holding a single chart. Fetch first,
+          # then merge the file.
+          if curl -fsSL "${index_url}" -o previous-index.yaml; then
+            helm repo index dist --url "${repo_url}" --merge previous-index.yaml
+          else
+            echo "No index published yet -- building a fresh one."
+            helm repo index dist --url "${repo_url}"
+          fi
+          mkdir -p site
+          cp dist/index.yaml site/
+
+      - name: Refuse to publish an index that lost versions
+        run: |
+          set -euo pipefail
+          if [ ! -f previous-index.yaml ]; then
+            echo "No previous index to compare against."
+            exit 0
+          fi
+          before=$(yq '.entries.netclab | length' previous-index.yaml)
+          after=$(yq '.entries.netclab | length' site/index.yaml)
+          echo "chart versions in index: ${before} -> ${after}"
+          if [ "${after}" -lt "${before}" ]; then
+            echo "::error::index shrank from ${before} to ${after} versions; refusing to publish"
+            exit 1
+          fi
+
+      - name: index.html
+        run: |
+          cat <<EOF > site/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <title>Netclab Helm Chart Repository</title>
+          </head>
+          <body>
+            <h1>Netclab Helm Chart Repository</h1>
+            <p>This is the Helm chart repository for <strong>netclab</strong>.</p>
+            <p>To use with Helm:</p>
+            <pre><code>helm repo add netclab https://netclab.github.io/netclab-chart</code></pre>
+            <p><a href="index.yaml">View index.yaml</a></p>
+          </body>
+          </html>
+          EOF
+
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: site
+
+  pages:
+    name: the index on GitHub Pages
+    needs: chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write  # the deployment's identity
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1
+
+  pypi:
+    name: netclab to PyPI
+    needs: pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/netclab/
+    permissions:
+      id-token: write  # Trusted Publishing
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      - run: uv build
+      - run: uv publish --trusted-publishing always

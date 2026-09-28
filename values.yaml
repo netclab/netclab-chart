@@ -1,6 +1,10 @@
 # cEOS-wide settings. These apply to every cEOS node, because the startup-config
 # is one ConfigMap shared by all of them rather than one per node.
 ceos:
+  # The image of every cEOS node that names none. cEOS cannot be pulled, so there is
+  # no default: import the image you downloaded, and name it here.
+  # image: ceos:<version>
+
   # SSL profile backing RESTCONF on port 6020. The default is EOS's own
   # self-signed profile, which the device generates for itself -- so RESTCONF
   # needs nothing generated and nothing ordered. Point this at a profile you

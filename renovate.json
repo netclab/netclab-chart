@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "pyenv": {
+    "enabled": false
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^src/netclab/lab\\.py$/"
+      ],
+      "matchStrings": [
+        "CNI_PLUGINS = \"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "containernetworking/plugins"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^src/netclab/lab\\.py$/"
+      ],
+      "matchStrings": [
+        "MULTUS = \"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "k8snetworkplumbingwg/multus-cni"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^src/netclab/lab\\.py$/"
+      ],
+      "matchStrings": [
+        "REGISTRY_IMAGE = \"(?<depName>registry):(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^templates/.+\\.yaml$/"
+      ],
+      "matchStrings": [
+        "\\$\\w+DefaultImg := \"(?<depName>[^\":]+):(?<currentValue>[^\"]+)\"",
+        "image: (?<depName>alpine):(?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
