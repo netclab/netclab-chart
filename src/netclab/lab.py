@@ -52,39 +52,33 @@ class LabError(Exception):
     """What stops a lab from coming up, said so a user can act on it."""
 
 
-def registry_address(subnets: list[str]) -> ipaddress.IPv4Address:
-    """The registry's address on the kind network: the last usable one of its IPv4 subnet.
-
-    Docker allocates from the bottom of the subnet, so the top is never a node's.
-    """
-    ipv4 = [n for n in map(ipaddress.ip_network, subnets) if n.version == 4]
-    if not ipv4:
-        raise LabError(f"the {KIND_NETWORK} network has no IPv4 subnet: {subnets}")
-    subnet = ipv4[0]
-    if not any(subnet.subnet_of(private) for private in RFC1918):
+def private(address: ipaddress.IPv4Address) -> ipaddress.IPv4Address:
+    """`address`, the registry's on the kind network, refused if Crossplane would not use HTTP."""
+    if not any(address in network for network in RFC1918):
         raise LabError(
-            f"the {KIND_NETWORK} network is {subnet}, outside RFC 1918: Crossplane would not "
-            "pull from a registry there over plain HTTP"
+            f"the registry is at {address} on the {KIND_NETWORK} network, outside RFC 1918: "
+            "Crossplane would not pull from it over plain HTTP"
         )
-    return subnet.broadcast_address - 1
+    return address
 
 
-def hosts_toml(address: ipaddress.IPv4Address) -> str:
-    """containerd's mirror for the registry, over plain HTTP."""
-    return f'[host."http://{address}:{REGISTRY_PORT}"]\n  capabilities = ["pull", "resolve"]\n'
+# containerd reaches the registry by its container name, which Docker resolves on the
+# kind network whatever address it gave the registry this time.
+HOSTS_TOML = f'[host."http://{REGISTRY}:{REGISTRY_PORT}"]\n  capabilities = ["pull", "resolve"]\n'
 
 
 def mirrors(address: ipaddress.IPv4Address) -> dict[str, str]:
     """containerd's hosts.toml, by the registry name it answers for.
 
-    The registry by both its names, from the host and from the cluster; and in front of
-    Docker Hub, so an image the chart names there, like `ceos:4.35.0F`, is found in the
-    registry as `library/ceos:4.35.0F`, and any other still comes from Docker Hub.
+    The registry by the names images in it carry: from the host, and at its address on
+    the kind network, which Crossplane uses. And in front of Docker Hub, so an image the
+    chart names there, like `ceos:4.36.1F`, is found in the registry as
+    `library/ceos:4.36.1F`, and any other still comes from Docker Hub.
     """
     return {
-        f"localhost:{REGISTRY_HOST_PORT}": hosts_toml(address),
-        f"{address}:{REGISTRY_PORT}": hosts_toml(address),
-        "docker.io": f'server = "{DOCKER_HUB}"\n\n{hosts_toml(address)}',
+        f"localhost:{REGISTRY_HOST_PORT}": HOSTS_TOML,
+        f"{address}:{REGISTRY_PORT}": HOSTS_TOML,
+        "docker.io": f'server = "{DOCKER_HUB}"\n\n{HOSTS_TOML}',
     }
 
 
@@ -168,22 +162,21 @@ def ensure_cluster(cluster: str) -> list[str]:
 
 
 def connect_registry() -> ipaddress.IPv4Address:
-    """The registry on the kind network, at the address `registry_address` gives."""
-    ipam = json.loads(
-        run("docker", "network", "inspect", KIND_NETWORK, "--format", "{{json .IPAM.Config}}")
-    )
-    address = registry_address([c["Subnet"] for c in ipam])
+    """The registry's address on the kind network, joined if it is not yet.
+
+    Docker gives the address: pinning one needs a network whose subnet was configured by
+    hand, and kind leaves the IPv4 one to Docker.
+    """
     networks = json.loads(
         run("docker", "inspect", REGISTRY, "--format", "{{json .NetworkSettings.Networks}}")
     )
-    current = (networks.get(KIND_NETWORK) or {}).get("IPAddress")
-    if current == str(address):
-        return address
-    say(f"registry at {address} on the {KIND_NETWORK} network")
-    if KIND_NETWORK in networks:
-        run("docker", "network", "disconnect", KIND_NETWORK, REGISTRY)
-    run("docker", "network", "connect", "--ip", str(address), KIND_NETWORK, REGISTRY)
-    return address
+    if KIND_NETWORK not in networks:
+        say(f"registry on the {KIND_NETWORK} network")
+        run("docker", "network", "connect", KIND_NETWORK, REGISTRY)
+        networks = json.loads(
+            run("docker", "inspect", REGISTRY, "--format", "{{json .NetworkSettings.Networks}}")
+        )
+    return private(ipaddress.ip_address(networks[KIND_NETWORK]["IPAddress"]))
 
 
 def trust_registry(nodes: list[str], address: ipaddress.IPv4Address) -> None:

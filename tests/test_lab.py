@@ -11,44 +11,31 @@ import yaml
 from netclab import lab
 
 
-def test_the_registry_takes_the_last_usable_address_of_the_ipv4_subnet():
-    subnets = ["fc00:f853:ccd:e793::/64", "172.18.0.0/16"]
-
-    assert lab.registry_address(subnets) == ipaddress.ip_address("172.18.255.254")
-
-
-def test_a_subnet_docker_picked_elsewhere_moves_the_registry_with_it():
-    assert lab.registry_address(["192.168.32.0/20"]) == ipaddress.ip_address("192.168.47.254")
+@pytest.mark.parametrize("address", ["172.18.0.3", "192.168.32.2", "10.89.0.5"])
+def test_a_registry_at_a_private_address_is_taken(address):
+    assert lab.private(ipaddress.ip_address(address)) == ipaddress.ip_address(address)
 
 
-def test_a_subnet_outside_rfc_1918_is_refused():
+def test_a_registry_outside_rfc_1918_is_refused():
     with pytest.raises(lab.LabError, match="outside RFC 1918"):
-        lab.registry_address(["100.64.0.0/16"])
+        lab.private(ipaddress.ip_address("100.64.0.3"))
 
 
-def test_a_network_without_ipv4_is_refused():
-    with pytest.raises(lab.LabError, match="no IPv4 subnet"):
-        lab.registry_address(["fc00:f853:ccd:e793::/64"])
+def test_containerd_reaches_the_registry_by_its_name_under_both_of_its_names():
+    registry = '[host."http://kind-registry:5000"]\n  capabilities = ["pull", "resolve"]\n'
 
-
-def test_containerd_reaches_the_registry_by_both_its_names_over_http():
-    address = ipaddress.ip_address("172.18.255.254")
-    registry = '[host."http://172.18.255.254:5000"]\n  capabilities = ["pull", "resolve"]\n'
-
-    found = lab.mirrors(address)
+    found = lab.mirrors(ipaddress.ip_address("172.18.0.3"))
 
     assert found["localhost:5001"] == registry
-    assert found["172.18.255.254:5000"] == registry
+    assert found["172.18.0.3:5000"] == registry
 
 
 def test_docker_hub_is_tried_after_the_registry():
-    address = ipaddress.ip_address("172.18.255.254")
-
-    docker_io = lab.mirrors(address)["docker.io"]
+    docker_io = lab.mirrors(ipaddress.ip_address("172.18.0.3"))["docker.io"]
 
     assert docker_io == (
         'server = "https://registry-1.docker.io"\n\n'
-        '[host."http://172.18.255.254:5000"]\n  capabilities = ["pull", "resolve"]\n'
+        '[host."http://kind-registry:5000"]\n  capabilities = ["pull", "resolve"]\n'
     )
 
 
