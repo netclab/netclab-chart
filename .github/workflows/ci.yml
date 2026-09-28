@@ -1,0 +1,66 @@
+name: CI
+
+# ruff, the tests, and a lab that netclab brings up from this tree's chart. Release
+# calls the same workflow, so a version is published only after exactly these checks.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+# A fixed name, not github.workflow: called from Release, github.workflow is
+# "Release", and a group equal to the caller's own cancels the caller.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ruff and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      # The exact tag, not a major alias: setup-uv publishes floating major aliases
+      # only up to v7, so a later one does not resolve. Renovate bumps the tag.
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - run: uv sync --locked
+      - run: uvx ruff check
+      - run: uvx ruff format --check
+      - run: uv run pytest -q
+
+  lab:
+    name: a lab from this chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - uses: helm/kind-action@v1.15.0
+        with:
+          install_only: true
+
+      - uses: azure/setup-helm@v5.0.1
+
+      - run: uv sync --locked
+
+      # FRRouting's images are public, so the lab needs nothing imported first.
+      - run: uv run netclab up --chart . --namespace ci --values examples/topology-frrouting.yaml
+      - run: kubectl --context kind-netclab --namespace ci wait pod --all --for=condition=Ready --timeout=5m
+      - run: uv run netclab down --namespace ci
