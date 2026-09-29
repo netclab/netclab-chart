@@ -1,6 +1,6 @@
 [project]
 name = "netclab"
-version = "0.6.0"
+version = "0.7.0"
 description = "Bring up a network lab on kind: the cluster, Multus, a registry, and the netclab chart"
 readme = "README.md"
 license = "Apache-2.0"
