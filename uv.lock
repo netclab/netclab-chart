@@ -52,26 +52,26 @@ wheels = [
 
 [[package]]
 name = "netclab"
-version = "0.6.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pyyaml" },
     { name = "typer" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
-    { name = "pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "typer", specifier = ">=0.27.2" }]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "typer", specifier = ">=0.27.2" },
+]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "packaging"

@@ -1,6 +1,6 @@
 [project]
 name = "netclab"
-version = "0.6.0"
+version = "0.7.0"
 description = "Bring up a network lab on kind: the cluster, Multus, a registry, and the netclab chart"
 readme = "README.md"
 license = "Apache-2.0"
@@ -21,6 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "pyyaml>=6.0.3",
     "typer>=0.27.2",
 ]
 
@@ -39,7 +40,6 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "pyyaml>=6.0.3",
 ]
 
 [tool.pytest.ini_options]
