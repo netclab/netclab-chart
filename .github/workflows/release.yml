@@ -5,8 +5,9 @@ name: Release
 # is in the index.
 #
 # The index is served by GitHub Pages, deployed from this workflow: the repository's
-# Pages source is "GitHub Actions". It holds index.yaml and index.html only; the chart
-# itself is an asset of the GitHub Release.
+# Pages source is "GitHub Actions". It holds index.yaml, index.html, and
+# artifacthub-repo.yml, which Artifact Hub reads to verify the repository is ours; the
+# chart itself is an asset of the GitHub Release.
 #
 # The version is Chart.yaml's; tests/test_version.py holds pyproject.toml equal to it,
 # and the tag is checked against it.
@@ -77,7 +78,7 @@ jobs:
             helm repo index dist --url "${repo_url}"
           fi
           mkdir -p site
-          cp dist/index.yaml site/
+          cp dist/index.yaml artifacthub-repo.yml site/
 
       - name: Refuse to publish an index that lost versions
         run: |
