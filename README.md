@@ -56,11 +56,14 @@ ceos:
   image: ceos:<version>
 ```
 
-The steps below do the same by hand. `netclab` works only on a cluster it made, so it
-refuses one made by these steps; `netclab down` removes it.
+`netclab` works only on a cluster it made, so it refuses one made by hand as below;
+`netclab down` removes it.
 
 
-## 🚀 Installation
+## 🚀 What `netclab up` does, by hand
+
+`netclab up` runs these steps for you, and also sets up the local registry. They are
+here to show what it does, or to run a lab without it.
 
 - Kind cluster:
 ```bash
@@ -93,7 +96,7 @@ helm repo update
 
 ## 🧩 Usage
 
-After installation, you can manage your topology using the YAML file.
+After these steps, you can manage your topology using the YAML file.
 Pods will be created according to the topology definition.
 
 > **Note:**<br>
@@ -374,6 +377,23 @@ git clone https://github.com/netclab/netclab-chart.git && cd netclab-chart
   helm uninstall dc1
   ```
 </details>
+
+
+## 🧪 A lab with Crossplane
+
+A lab for Kubernetes-managed network configuration, such as netadopt's AVD fabric, also
+needs Crossplane and its packages. `netclab up` installs them after the chart:
+
+```bash
+uvx netclab up --namespace dc1 --values topology.yaml \
+  --crossplane <version> \
+  --configuration xpkg.upbound.io/netclab/configuration-avd:<version> \
+  --manifest runtime.yaml --manifest providerconfig.yaml --manifest fabric.yaml
+```
+
+- `--configuration` installs the package and waits until it is healthy.
+- Each `--manifest` is applied server-side once the cluster serves every kind in it:
+  before the Configuration if it already does, after it otherwise, in the order given.
 
 
 ## 🧭 Future Plans
