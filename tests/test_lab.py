@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from rich.text import Text
 from typer.testing import CliRunner
 
 from netclab import lab
@@ -216,9 +217,13 @@ def test_a_configuration_needs_crossplane(tmp_path, monkeypatch):
     values = tmp_path / "values.yaml"
     values.write_text("topology: {}\n")
 
+    # A usage error, its message boxed to the terminal's width and, where Rich sees a CI,
+    # coloured: wide enough for one line, and read without the colours.
     done = CliRunner().invoke(
-        app, ["up", "--namespace", "l3ls", "--values", str(values), "--configuration", "x/y:v1"]
+        app,
+        ["up", "--namespace", "l3ls", "--values", str(values), "--configuration", "x/y:v1"],
+        env={"COLUMNS": "200"},
     )
 
-    assert done.exit_code != 0
-    assert "need --crossplane" in done.output
+    assert done.exit_code == 2
+    assert "need --crossplane" in Text.from_ansi(done.output).plain
