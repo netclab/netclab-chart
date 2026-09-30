@@ -67,9 +67,49 @@ KUBERNETES_NAMESPACES = ("default", "kube-system", "kube-public", "kube-node-lea
 # `uname -m` on a node, as the CNI plugins' release names it.
 ARCHES = {"x86_64": "amd64", "aarch64": "arm64"}
 
+# A Kubernetes quantity's suffix, and what it multiplies by.
+QUANTITY_SUFFIXES = {
+    "Ki": 2**10,
+    "Mi": 2**20,
+    "Gi": 2**30,
+    "Ti": 2**40,
+    "Pi": 2**50,
+    "Ei": 2**60,
+    "m": 1e-3,
+    "k": 1e3,
+    "M": 1e6,
+    "G": 1e9,
+    "T": 1e12,
+    "P": 1e15,
+    "E": 1e18,
+}
+
+# A pod that has ended holds nothing on its node.
+ENDED = ("Succeeded", "Failed")
+
 
 class LabError(Exception):
     """What stops a lab from coming up, said so a user can act on it."""
+
+
+@dataclass(frozen=True)
+class Requests:
+    """CPU in cores and memory in bytes, as the scheduler adds them up."""
+
+    cpu: float = 0.0
+    memory: float = 0.0
+
+    def __add__(self, other: Requests) -> Requests:
+        return Requests(self.cpu + other.cpu, self.memory + other.memory)
+
+    def __sub__(self, other: Requests) -> Requests:
+        return Requests(self.cpu - other.cpu, self.memory - other.memory)
+
+    def fits(self, free: Requests) -> bool:
+        return self.cpu <= free.cpu and self.memory <= free.memory
+
+    def __str__(self) -> str:
+        return f"{self.cpu:.1f} CPU and {self.memory / 2**30:.1f}Gi"
 
 
 @dataclass(frozen=True)
@@ -133,6 +173,74 @@ def unserved(manifest: Manifest, serves: Callable[[str], set[str]]) -> list[str]
         if kind not in serves(api_version)
     ]
     return list(dict.fromkeys(missing))
+
+
+def quantity(value: str | float) -> float:
+    """A Kubernetes quantity as a number: `500m` is 0.5, `1536Mi` is 1610612736."""
+    text = str(value)
+    for suffix, factor in QUANTITY_SUFFIXES.items():
+        if text.endswith(suffix):
+            return float(text.removesuffix(suffix)) * factor
+    return float(text)
+
+
+def container_requests(container: dict) -> Requests:
+    """A container's requests; where one is not set, its limit, as Kubernetes defaults it.
+
+    The chart sets only limits.
+    """
+    resources = container.get("resources") or {}
+    asked = (resources.get("limits") or {}) | (resources.get("requests") or {})
+    return Requests(quantity(asked.get("cpu", 0)), quantity(asked.get("memory", 0)))
+
+
+def pod_requests(spec: dict) -> Requests:
+    """What the scheduler reserves for a pod: its containers together, or its largest
+    init container where that asks for more, CPU and memory each."""
+    running = sum((container_requests(c) for c in spec.get("containers") or []), Requests())
+    init = [container_requests(c) for c in spec.get("initContainers") or []]
+    return Requests(
+        max([running.cpu, *(i.cpu for i in init)]),
+        max([running.memory, *(i.memory for i in init)]),
+    )
+
+
+def requested(docs: list[dict]) -> Requests:
+    """What the pods of `docs`, a rendered chart, ask for together.
+
+    A workload's template counts once for each replica; a DaemonSet once, as on the one
+    node of a cluster netclab makes.
+    """
+    total = Requests()
+    for doc in docs:
+        if doc.get("kind") == "Pod":
+            total += pod_requests(doc.get("spec") or {})
+            continue
+        template = ((doc.get("spec") or {}).get("template") or {}).get("spec")
+        if template is not None:
+            replicas = (doc.get("spec") or {}).get("replicas", 1)
+            for _ in range(replicas):
+                total += pod_requests(template)
+    return total
+
+
+def free(nodes: list[dict], pods: list[dict], namespace: str) -> Requests:
+    """What `nodes` can still give, beside what the pods of other namespaces hold.
+
+    The pods in `namespace` are the lab's own, which the chart's release replaces.
+    """
+    allocatable = Requests()
+    for node in nodes:
+        can = (node.get("status") or {}).get("allocatable") or {}
+        allocatable += Requests(quantity(can.get("cpu", 0)), quantity(can.get("memory", 0)))
+    held = Requests()
+    for pod in pods:
+        if pod["metadata"]["namespace"] == namespace:
+            continue
+        if (pod.get("status") or {}).get("phase") in ENDED:
+            continue
+        held += pod_requests(pod.get("spec") or {})
+    return allocatable - held
 
 
 def chart_version(release: str) -> str:
@@ -328,6 +436,48 @@ def chart_source(chart: Path | None) -> list[str]:
     return [CHART, "--repo", CHART_REPO, "--version", version("netclab")]
 
 
+def check_requests(cluster: str, namespace: str, values: Path, chart: Path | None) -> None:
+    """Refuse a lab whose pods ask for more than the cluster has free.
+
+    Its pods would stay Pending, some of the lab up and the rest never.
+    """
+    text = run(
+        "helm",
+        "template",
+        namespace,
+        *chart_source(chart),
+        "--namespace",
+        namespace,
+        "--values",
+        str(values),
+        # The chart refuses a cluster without Multus, which comes after this check;
+        # rendering offline, helm knows no cluster's API.
+        "--api-versions",
+        "k8s.cni.cncf.io/v1",
+    )
+    wanted = requested([doc for doc in yaml.safe_load_all(text) if doc])
+    nodes = json.loads(run("kubectl", "--context", context(cluster), "get", "nodes", "-o", "json"))
+    pods = json.loads(
+        run(
+            "kubectl",
+            "--context",
+            context(cluster),
+            "get",
+            "pods",
+            "--all-namespaces",
+            "-o",
+            "json",
+        )
+    )
+    available = free(nodes["items"], pods["items"], namespace)
+    if not wanted.fits(available):
+        raise LabError(
+            f"lab {namespace} asks for {wanted}, and cluster {cluster} has {available} free: "
+            "fewer nodes, or less cpu and memory for each"
+        )
+    say(f"lab {namespace} asks for {wanted}, of {available} free")
+
+
 def install_chart(cluster: str, namespace: str, values: Path, chart: Path | None) -> None:
     with step(f"netclab chart {chart or version('netclab')} as {namespace} in {namespace}"):
         run(
@@ -380,6 +530,9 @@ def install_crossplane(cluster: str, release: str) -> None:
             CROSSPLANE_NAMESPACE,
             "--create-namespace",
             "--wait",
+            # A first install that fails is uninstalled, or its release would stay
+            # pending and refuse the next `up`.
+            "--rollback-on-failure",
         )
 
 
@@ -501,6 +654,7 @@ def up(
     check_tools()
     ensure_registry()
     nodes = ensure_cluster(cluster)
+    check_requests(cluster, namespace, values, chart)
     address = connect_registry()
     trust_registry(nodes, address)
     install_cni_plugins(nodes)

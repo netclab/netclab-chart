@@ -57,7 +57,8 @@ ceos:
 ```
 
 `netclab` works only on a cluster it made, so it refuses one made by hand as below;
-`netclab down` removes it.
+`netclab down` removes it. It also refuses a lab whose nodes ask for more CPU or memory
+than the cluster has free.
 
 
 ## 🚀 What `netclab up` does, by hand
