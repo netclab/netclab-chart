@@ -4,6 +4,7 @@ the order it puts Crossplane's objects in."""
 from __future__ import annotations
 
 import ipaddress
+import json
 from importlib.metadata import version
 from pathlib import Path
 
@@ -155,6 +156,98 @@ def test_the_kinds_not_served_are_named_once_each():
     assert lab.unserved(manifest, lambda api: kinds.get(api, set())) == [
         "FabricInput (avd.netclab.dev/v1alpha1)"
     ]
+
+
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        ("500m", 0.5),
+        ("2", 2.0),
+        (2, 2.0),
+        ("1536Mi", 1536 * 2**20),
+        ("4Gi", 4 * 2**30),
+        ("1M", 1e6),
+    ],
+)
+def test_a_quantity_is_read_by_its_suffix(text, number):
+    assert lab.quantity(text) == number
+
+
+def a_pod(
+    namespace: str, cpu: str, memory: str, phase: str = "Running", field: str = "requests"
+) -> dict:
+    container = {"name": "c", "resources": {field: {"cpu": cpu, "memory": memory}}}
+    return {
+        "kind": "Pod",
+        "metadata": {"name": "p", "namespace": namespace},
+        "spec": {"containers": [container]},
+        "status": {"phase": phase},
+    }
+
+
+def test_a_limit_stands_for_a_request_not_set():
+    limited = {"resources": {"limits": {"cpu": "2", "memory": "4Gi"}, "requests": {"cpu": "1"}}}
+
+    assert lab.container_requests(limited) == lab.Requests(1.0, 4 * 2**30)
+
+
+def test_a_pods_containers_add_up_and_a_larger_init_container_wins():
+    spec = {
+        "containers": [
+            {"resources": {"requests": {"cpu": "500m", "memory": "1Gi"}}},
+            {"resources": {"requests": {"cpu": "500m", "memory": "1Gi"}}},
+        ],
+        "initContainers": [{"resources": {"requests": {"cpu": "3", "memory": "1Gi"}}}],
+    }
+
+    assert lab.pod_requests(spec) == lab.Requests(3.0, 2 * 2**30)
+
+
+def test_a_rendered_chart_asks_for_its_pods_and_each_replica():
+    template = {"containers": [{"resources": {"requests": {"cpu": "1", "memory": "1Gi"}}}]}
+    docs = [
+        a_pod("l3ls", "2", "4Gi"),
+        {"kind": "Deployment", "spec": {"replicas": 2, "template": {"spec": template}}},
+        {"kind": "DaemonSet", "spec": {"template": {"spec": template}}},
+        {"kind": "Service", "spec": {"ports": []}},
+    ]
+
+    assert lab.requested(docs) == lab.Requests(5.0, 7 * 2**30)
+
+
+def test_free_leaves_out_the_labs_own_pods_and_those_that_ended():
+    nodes = [{"status": {"allocatable": {"cpu": "10", "memory": "20Gi"}}}]
+    pods = [
+        a_pod("kube-system", "1", "1Gi"),
+        a_pod("l3ls", "2", "4Gi"),
+        a_pod("dc2", "4", "4Gi", phase="Succeeded"),
+    ]
+
+    assert lab.free(nodes, pods, "l3ls") == lab.Requests(9.0, 19 * 2**30)
+
+
+def test_a_lab_asking_for_more_than_is_free_is_refused(monkeypatch, tmp_path):
+    # Eight cEOS at the chart's own 2 CPU, set as limits, on a machine of 10.
+    ceos = yaml.safe_dump(a_pod("l3ls", "2", "4Gi", field="limits"))
+    nodes = {"items": [{"status": {"allocatable": {"cpu": "10", "memory": "24Gi"}}}]}
+    answers = {
+        "template": "---\n".join([ceos] * 8),
+        "nodes": json.dumps(nodes),
+        "pods": json.dumps({"items": []}),
+    }
+    ran = []
+
+    def run(*command, stdin=None):
+        # `helm template ...`, `kubectl --context C get nodes|pods ...`
+        ran.append(command)
+        return answers[command[1] if command[0] == "helm" else command[4]]
+
+    monkeypatch.setattr(lab, "run", run)
+
+    with pytest.raises(lab.LabError, match=r"asks for 16.0 CPU and 32.0Gi, .* 10.0 CPU and 24.0Gi"):
+        lab.check_requests("netclab", "l3ls", tmp_path / "values.yaml", None)
+    # Multus is installed after the check, and the chart refuses a render without it.
+    assert ("--api-versions", "k8s.cni.cncf.io/v1") in zip(ran[0], ran[0][1:], strict=False)
 
 
 class FakeCluster:
