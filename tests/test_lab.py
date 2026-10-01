@@ -51,6 +51,13 @@ def test_the_kind_cluster_reads_the_registry_mirrors():
     assert f'config_path = "{lab.CONTAINERD_CERTS}"' in config["containerdConfigPatches"][0]
 
 
+def test_etcd_keeps_its_data_on_the_nodes_tmpfs():
+    patches = [yaml.safe_load(p) for p in yaml.safe_load(lab.KIND_CONFIG)["kubeadmConfigPatches"]]
+    (cluster,) = [p for p in patches if p["kind"] == "ClusterConfiguration"]
+
+    assert cluster["etcd"]["local"]["dataDir"].startswith("/tmp/")
+
+
 @pytest.mark.parametrize(("machine", "arch"), [("x86_64", "amd64"), ("aarch64", "arm64")])
 def test_the_cni_plugins_are_the_nodes_architecture(machine, arch):
     assert lab.cni_plugins_url(machine).endswith(f"/cni-plugins-linux-{arch}-{lab.CNI_PLUGINS}.tgz")
