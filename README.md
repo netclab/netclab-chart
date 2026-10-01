@@ -34,7 +34,7 @@ Before installing Netclab Chart, ensure the following are present:
 
 `netclab`, on PyPI, brings a lab up in one command: the kind cluster, the CNI plugins,
 Multus, a local registry, and this chart, from a topology file such as
-[`examples/topology-frrouting.yaml`](examples/topology-frrouting.yaml):
+[`examples/topology-frrouting.yaml`](https://github.com/netclab/netclab-chart/blob/main/examples/topology-frrouting.yaml):
 
 ```bash
 uvx netclab up --namespace dc2 --values topology-frrouting.yaml
@@ -56,9 +56,11 @@ ceos:
   image: ceos:<version>
 ```
 
-`netclab` works only on a cluster it made, so it refuses one made by hand as below;
-`netclab down` removes it. It also refuses a lab whose nodes ask for more CPU or memory
-than the cluster has free.
+`netclab` works only on a cluster made with its
+[`kind.yaml`](https://github.com/netclab/netclab-chart/blob/main/src/netclab/kind.yaml),
+and refuses any other; `netclab down` removes it. It also refuses a lab whose nodes ask
+for more CPU or memory than the cluster has free. etcd keeps its data in memory, so the
+cluster does not survive a restart of Docker or of the host.
 
 
 ## 🚀 What `netclab up` does, by hand
@@ -66,9 +68,10 @@ than the cluster has free.
 `netclab up` runs these steps for you, and also sets up the local registry. They are
 here to show what it does, or to run a lab without it.
 
-- Kind cluster:
+- Kind cluster, with
+  [`kind.yaml`](https://github.com/netclab/netclab-chart/blob/main/src/netclab/kind.yaml):
 ```bash
-kind create cluster --name netclab
+kind create cluster --name netclab --config kind.yaml
 ```
 
 - CNI plugins (bridge and host-device), from their

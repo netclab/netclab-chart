@@ -16,6 +16,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import version
+from importlib.resources import files
 from pathlib import Path
 
 import yaml
@@ -48,14 +49,7 @@ KINDS_TIMEOUT = 300
 KINDS_POLL = 5
 
 CONTAINERD_CERTS = "/etc/containerd/certs.d"
-KIND_CONFIG = f"""\
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry]
-    config_path = "{CONTAINERD_CERTS}"
-"""
+KIND_CONFIG = (files("netclab") / "kind.yaml").read_text(encoding="utf-8")
 
 # go-containerregistry, which Crossplane pulls packages with, falls back to plain HTTP
 # only for these; the registry serves no TLS.
