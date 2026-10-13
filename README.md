@@ -104,6 +104,13 @@ uvx netclab up --namespace dc1 --values topology.yaml \
 - Each `--manifest` is applied server-side once the cluster serves every kind in it:
   before the Configuration if it already does, after it otherwise, in the order given.
 
+Without `--namespace` and `--values` there is no chart, only the cluster with Crossplane,
+for devices started apart from it:
+
+```bash
+uvx netclab up --cluster xp --crossplane <version>
+```
+
 
 ## 🛠️ Without the `netclab` command
 

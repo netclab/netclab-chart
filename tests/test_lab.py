@@ -327,3 +327,70 @@ def test_a_configuration_needs_crossplane(tmp_path, monkeypatch):
 
     assert done.exit_code == 2
     assert "need --crossplane" in Text.from_ansi(done.output).plain
+
+
+@pytest.mark.parametrize("given", ["--namespace", "--values"])
+def test_a_namespace_and_values_go_together(tmp_path, monkeypatch, given):
+    monkeypatch.setattr(lab, "up", lambda *args: pytest.fail("up ran"))
+    values = tmp_path / "values.yaml"
+    values.write_text("topology: {}\n")
+    option = {"--namespace": ["--namespace", "l3ls"], "--values": ["--values", str(values)]}
+
+    done = CliRunner().invoke(app, ["up", *option[given]], env={"COLUMNS": "200"})
+
+    assert done.exit_code == 2
+    assert "go together" in Text.from_ansi(done.output).plain
+
+
+def test_a_chart_needs_values(tmp_path, monkeypatch):
+    monkeypatch.setattr(lab, "up", lambda *args: pytest.fail("up ran"))
+
+    done = CliRunner().invoke(app, ["up", "--chart", str(tmp_path)], env={"COLUMNS": "200"})
+
+    assert done.exit_code == 2
+    assert "--chart needs --values" in Text.from_ansi(done.output).plain
+
+
+@pytest.fixture
+def steps(monkeypatch):
+    """The steps `up` takes, in order, none of them run."""
+    done = []
+    for name in (
+        "check_tools",
+        "ensure_registry",
+        "check_requests",
+        "trust_registry",
+        "install_cni_plugins",
+        "install_multus",
+        "install_chart",
+    ):
+        monkeypatch.setattr(lab, name, lambda *args, name=name: done.append(name))
+    monkeypatch.setattr(lab, "ensure_cluster", lambda cluster: [])
+    monkeypatch.setattr(lab, "connect_registry", lambda: ipaddress.IPv4Address("172.18.0.2"))
+    return done
+
+
+def test_up_with_values_installs_the_chart_it_checked(steps, tmp_path):
+    lab.up("netclab", "l3ls", tmp_path / "values.yaml")
+
+    assert "check_requests" in steps
+    assert steps[-1] == "install_chart"
+
+
+def test_up_without_values_makes_the_cluster_alone(steps):
+    lab.up("xp", None, None)
+
+    assert "check_requests" not in steps
+    assert "install_chart" not in steps
+    assert steps[-1] == "install_multus"
+
+
+@pytest.mark.parametrize(("namespace", "into"), [("l3ls", ["--namespace", "l3ls"]), (None, [])])
+def test_a_manifest_goes_into_the_labs_namespace_when_there_is_a_lab(monkeypatch, namespace, into):
+    ran = []
+    monkeypatch.setattr(lab, "run", lambda *command, **_: ran.append(list(command)) or "")
+
+    lab.apply_manifest("netclab", namespace, PROVIDERCONFIG)
+
+    (command,) = ran
+    assert command[command.index("--server-side") + 1 : command.index("--filename")] == into

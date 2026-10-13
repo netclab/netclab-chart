@@ -574,7 +574,9 @@ def install_configuration(cluster: str, package: str) -> None:
             )
 
 
-def apply_manifest(cluster: str, namespace: str, manifest: Manifest) -> None:
+def apply_manifest(cluster: str, namespace: str | None, manifest: Manifest) -> None:
+    # With no lab, a manifest's objects go where the manifest puts them.
+    into = ("--namespace", namespace) if namespace else ()
     with step(f"apply {manifest.path.name}: {describe(manifest)}"):
         run(
             "kubectl",
@@ -582,14 +584,13 @@ def apply_manifest(cluster: str, namespace: str, manifest: Manifest) -> None:
             context(cluster),
             "apply",
             "--server-side",
-            "--namespace",
-            namespace,
+            *into,
             "--filename",
             str(manifest.path),
         )
 
 
-def apply_served(cluster: str, namespace: str, manifests: list[Manifest]) -> list[Manifest]:
+def apply_served(cluster: str, namespace: str | None, manifests: list[Manifest]) -> list[Manifest]:
     """Apply each manifest whose kinds `cluster` serves; the others, still to apply."""
     serves = functools.cache(functools.partial(served, cluster))
     later = []
@@ -617,7 +618,7 @@ def wait_until_served(cluster: str, manifests: list[Manifest]) -> None:
 
 
 def install_crossplane_lab(
-    cluster: str, namespace: str, crossplane: Crossplane, manifests: list[Manifest]
+    cluster: str, namespace: str | None, crossplane: Crossplane, manifests: list[Manifest]
 ) -> None:
     install_crossplane(cluster, crossplane.version)
     later = apply_served(cluster, namespace, manifests)
@@ -634,13 +635,14 @@ def install_crossplane_lab(
 
 def up(
     cluster: str,
-    namespace: str,
-    values: Path,
+    namespace: str | None,
+    values: Path | None,
     chart: Path | None = None,
     crossplane: Crossplane | None = None,
 ) -> None:
     """The lab `values` describes, in `namespace` of `cluster`; the cluster made if need be.
 
+    With no `values`, no lab: the cluster alone, its devices started apart from it.
     `chart` is a chart directory to install instead of the released chart. `crossplane`
     adds Crossplane, and what goes into it, once the chart is installed.
     """
@@ -648,12 +650,14 @@ def up(
     check_tools()
     ensure_registry()
     nodes = ensure_cluster(cluster)
-    check_requests(cluster, namespace, values, chart)
+    if values:
+        check_requests(cluster, namespace, values, chart)
     address = connect_registry()
     trust_registry(nodes, address)
     install_cni_plugins(nodes)
     install_multus(cluster)
-    install_chart(cluster, namespace, values, chart)
+    if values:
+        install_chart(cluster, namespace, values, chart)
     if crossplane:
         install_crossplane_lab(cluster, namespace, crossplane, manifests)
 
