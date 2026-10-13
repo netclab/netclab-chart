@@ -33,10 +33,14 @@ def netclab(
 
 @app.command()
 def up(
-    namespace: Annotated[str, typer.Option(help="the namespace the lab is installed into")],
+    namespace: Annotated[
+        str | None,
+        typer.Option(help="the namespace the lab is installed into; without it, no lab"),
+    ] = None,
     values: Annotated[
-        Path, typer.Option(exists=True, dir_okay=False, help="the chart's values: the topology")
-    ],
+        Path | None,
+        typer.Option(exists=True, dir_okay=False, help="the chart's values: the topology"),
+    ] = None,
     cluster: Annotated[str, typer.Option(help="the kind cluster")] = CLUSTER,
     chart: Annotated[
         Path | None,
@@ -64,8 +68,13 @@ def up(
 ) -> None:
     """Bring a lab up: the registry, the cluster, the CNI plugins, Multus, and the chart.
 
-    With --crossplane, also Crossplane, a Configuration and manifests.
+    Without --namespace and --values, no chart: the cluster alone. With --crossplane, also
+    Crossplane, a Configuration and manifests.
     """
+    if (namespace is None) != (values is None):
+        raise typer.BadParameter("--namespace and --values go together")
+    if chart and values is None:
+        raise typer.BadParameter("--chart needs --values")
     if crossplane is None and (configuration or manifest):
         raise typer.BadParameter("--configuration and --manifest need --crossplane")
     wanted = (
