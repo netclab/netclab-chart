@@ -30,7 +30,7 @@ jobs:
 
       # The exact tag, not a major alias: setup-uv publishes floating major aliases
       # only up to v7, so a later one does not resolve. Renovate bumps the tag.
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
 
@@ -48,7 +48,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
 
