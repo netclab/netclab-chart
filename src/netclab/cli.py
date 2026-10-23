@@ -51,7 +51,7 @@ def up(
         ),
     ] = None,
     crossplane: Annotated[
-        str | None, typer.Option(help="the Crossplane release to install, such as v2.4.2")
+        str | None, typer.Option(help="the Crossplane release to install, such as v2.4.3")
     ] = None,
     configuration: Annotated[
         str | None,
