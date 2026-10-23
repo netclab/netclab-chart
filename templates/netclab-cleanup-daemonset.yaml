@@ -28,7 +28,7 @@ spec:
       hostPID: true
       containers:
       - name: cleanup-veth
-        image: alpine:3.24.2
+        image: alpine:3.24.3
         securityContext:
           privileged: true
         command:
