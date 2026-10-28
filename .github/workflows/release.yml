@@ -148,7 +148,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
 
       - run: uv build
       - run: uv publish --trusted-publishing always
