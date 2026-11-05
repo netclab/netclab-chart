@@ -34,7 +34,7 @@ KIND_NETWORK = "kind"
 DOCKER_HUB = "https://registry-1.docker.io"
 
 CNI_PLUGINS = "v1.9.1"
-MULTUS = "v4.3.1"
+MULTUS = "v4.3.2"
 CHART_REPO = "https://netclab.github.io/netclab-chart"
 CHART = "netclab"
 
