@@ -33,7 +33,7 @@ REGISTRY_PORT = 5000
 KIND_NETWORK = "kind"
 DOCKER_HUB = "https://registry-1.docker.io"
 
-CNI_PLUGINS = "v1.9.1"
+CNI_PLUGINS = "v1.10.0"
 MULTUS = "v4.3.1"
 CHART_REPO = "https://netclab.github.io/netclab-chart"
 CHART = "netclab"
