@@ -43,7 +43,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: azure/setup-helm@v5.0.1
+      - uses: azure/setup-helm@v5.1.0
 
       - name: The tag is Chart.yaml's version
         run: |
