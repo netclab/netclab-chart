@@ -26,7 +26,7 @@ from netclab.steps import say, step
 TOOLS = ("docker", "kind", "kubectl", "helm")
 
 REGISTRY = "kind-registry"
-REGISTRY_IMAGE = "registry:2"
+REGISTRY_IMAGE = "registry:3"
 REGISTRY_VOLUME = "kind-registry-data"
 REGISTRY_HOST_PORT = 5001
 REGISTRY_PORT = 5000
